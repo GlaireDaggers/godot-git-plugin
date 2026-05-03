@@ -1,11 +1,27 @@
 #include "git_plugin.h"
 
+#include "godot_cpp/classes/project_settings.hpp"
 #include "godot_cpp/core/class_db.hpp"
 #include "godot_cpp/godot.hpp"
 
 void initialize_git_plugin_module(godot::ModuleInitializationLevel p_level) {
 	if (p_level != godot::MODULE_INITIALIZATION_LEVEL_EDITOR) {
 		return;
+	}
+
+	// register custom settings
+	godot::ProjectSettings *settings = godot::ProjectSettings::get_singleton();
+
+	if (!settings->has_setting(SETTING_ENABLE_LFS)) {
+		settings->set_setting(SETTING_ENABLE_LFS, SETTING_ENABLE_LFS_DEFAULT);
+		settings->set_initial_value(SETTING_ENABLE_LFS, SETTING_ENABLE_LFS_DEFAULT);
+		settings->set_as_basic(SETTING_ENABLE_LFS, true);
+	}
+
+	if (!settings->has_setting(SETTING_GIT_BIN_PATH)) {
+		settings->set_setting(SETTING_GIT_BIN_PATH, SETTING_GIT_BIN_PATH_DEFAULT);
+		settings->set_initial_value(SETTING_GIT_BIN_PATH, SETTING_GIT_BIN_PATH_DEFAULT);
+		settings->set_as_basic(SETTING_GIT_BIN_PATH, true);
 	}
 
 	godot::ClassDB::register_class<GitPlugin>();

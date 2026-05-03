@@ -8,6 +8,12 @@
 #include "godot_cpp/classes/editor_vcs_interface.hpp"
 #include "git2.h"
 
+constexpr const char* 	SETTING_ENABLE_LFS = "git_plugin/enable_lfs";
+constexpr bool 			SETTING_ENABLE_LFS_DEFAULT = false;
+
+constexpr const char* 	SETTING_GIT_BIN_PATH = "git_plugin/git_binary_path";
+constexpr const char*	SETTING_GIT_BIN_PATH_DEFAULT = "";
+
 struct Credentials {
 	godot::String username;
 	godot::String password;
@@ -62,4 +68,5 @@ public:
 	bool check_errors(int error, godot::String function, godot::String file, int line, godot::String message, const std::vector<git_error_code> &ignores = {});
 	void create_gitignore_and_gitattributes();
 	bool create_initial_commit();
+	void _setup_lfs_filter();
 };

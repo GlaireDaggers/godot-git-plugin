@@ -3,8 +3,11 @@
 #include <cstring>
 
 #include <git2/tree.h>
+#include <git2/sys/filter.h>
 #include "godot_cpp/core/class_db.hpp"
 #include "godot_cpp/classes/file_access.hpp"
+#include "godot_cpp/classes/os.hpp"
+#include "godot_cpp/classes/project_settings.hpp"
 #include "godot_cpp/variant/utility_functions.hpp"
 
 #define GIT2_CALL(error, msg)                                         \
@@ -679,6 +682,11 @@ bool GitPlugin::_initialize(const godot::String &project_path) {
 		WARN_PRINT("Multiple libgit2 instances are running");
 	}
 
+	ProjectSettings *settings = ProjectSettings::get_singleton();
+	if (settings->get_setting(SETTING_ENABLE_LFS).booleanize()) {
+		_setup_lfs_filter();
+	}
+
 	git_buf discovered_repo_path = {};
 	if (git_repository_discover(&discovered_repo_path, CString(project_path).data, 1, nullptr) == 0) {
 		repo_project_path = godot::String::utf8(discovered_repo_path.ptr);
@@ -708,4 +716,50 @@ bool GitPlugin::_shut_down() {
 	repo.reset(); // Destroy repo object before libgit2 shuts down
 	GIT2_CALL_R(git_libgit2_shutdown(), "Could not shutdown Git Plugin", false);
 	return true;
+}
+
+struct LfsFilterStream {
+public:
+	git_writestream stream;
+};
+
+static void _lfs_filter_shutdown(git_filter *filter) {
+	delete filter;
+}
+
+static int _lfs_filter_check(git_filter *filter, void **payload, const git_filter_source *source, const char **attr_values) {
+	return GIT_PASSTHROUGH;
+}
+
+static int _lfs_filter_stream(git_writestream **out, git_filter *filter, void **payload, const git_filter_source *source, git_writestream *next) {
+	godot::OS *os = godot::OS::get_singleton();
+	return GIT_PASSTHROUGH;
+}
+
+static void _lfs_filter_cleanup(git_filter *filter, void *payload) {
+}
+
+void GitPlugin::_setup_lfs_filter() {
+	git_filter *filter = new git_filter();
+	filter->version = GIT_FILTER_VERSION;
+	filter->attributes = "filter=lfs";
+	filter->initialize = nullptr;
+	filter->shutdown = _lfs_filter_shutdown;
+	filter->check = _lfs_filter_check;
+	filter->apply = nullptr;
+	filter->stream = _lfs_filter_stream;
+	filter->cleanup = _lfs_filter_cleanup;
+
+	int e = git_filter_register("lfs", filter, 200);
+	if (e == GIT_EEXISTS) {
+		WARN_PRINT("LFS filter already registered");
+		delete filter;
+	}
+	else if (e != 0) {
+		godot::UtilityFunctions::push_error("Failed to register LFS filter (error code: %d)", e);
+		delete filter;
+	}
+	else {
+		godot::UtilityFunctions::print("LFS filter initialized");
+	}
 }
